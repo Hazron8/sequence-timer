@@ -71,7 +71,7 @@ fun TimerScreen(
                     modifier = Modifier.size(280.dp)
                 ) {
                     CircularProgressIndicator(
-                        progress = { uiState.progress },
+                        progress = uiState.progress,
                         modifier = Modifier.fillMaxSize(),
                         strokeWidth = 12.dp,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant,

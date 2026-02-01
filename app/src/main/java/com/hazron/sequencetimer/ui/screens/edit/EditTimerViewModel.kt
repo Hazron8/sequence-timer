@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -17,8 +18,10 @@ import javax.inject.Inject
 data class EditTimerUiState(
     val timerId: Long? = null,
     val label: String = "",
+    val defaultLabel: String = "Timer 1",
+    val isLabelFocused: Boolean = false,
     val hours: Int = 0,
-    val minutes: Int = 0,
+    val minutes: Int = 5,
     val seconds: Int = 0,
     val notificationType: NotificationType = NotificationType.SOUND,
     val isLoading: Boolean = true,
@@ -28,8 +31,14 @@ data class EditTimerUiState(
     val totalSeconds: Long
         get() = (hours * 3600L) + (minutes * 60L) + seconds
 
+    val displayLabel: String
+        get() = if (label.isBlank() && !isLabelFocused) defaultLabel else label
+
     val isValid: Boolean
-        get() = label.isNotBlank() && totalSeconds > 0
+        get() = totalSeconds > 0
+
+    val effectiveLabel: String
+        get() = if (label.isBlank()) defaultLabel else label.trim()
 }
 
 @HiltViewModel
@@ -47,7 +56,21 @@ class EditTimerViewModel @Inject constructor(
         if (timerId > 0) {
             loadTimer()
         } else {
-            _uiState.update { it.copy(isLoading = false, isNewTimer = true) }
+            loadDefaultLabel()
+        }
+    }
+
+    private fun loadDefaultLabel() {
+        viewModelScope.launch {
+            val timers = timerRepository.getAllTimers().first()
+            val nextNumber = timers.size + 1
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    isNewTimer = true,
+                    defaultLabel = "Timer $nextNumber"
+                )
+            }
         }
     }
 
@@ -63,6 +86,7 @@ class EditTimerViewModel @Inject constructor(
                     it.copy(
                         timerId = timer.id,
                         label = timer.label,
+                        defaultLabel = timer.label,
                         hours = hours,
                         minutes = minutes,
                         seconds = seconds,
@@ -72,13 +96,17 @@ class EditTimerViewModel @Inject constructor(
                     )
                 }
             } else {
-                _uiState.update { it.copy(isLoading = false, isNewTimer = true) }
+                loadDefaultLabel()
             }
         }
     }
 
     fun updateLabel(label: String) {
         _uiState.update { it.copy(label = label) }
+    }
+
+    fun onLabelFocusChanged(focused: Boolean) {
+        _uiState.update { it.copy(isLabelFocused = focused) }
     }
 
     fun updateHours(hours: Int) {
@@ -106,7 +134,7 @@ class EditTimerViewModel @Inject constructor(
 
             val timer = Timer(
                 id = state.timerId ?: 0,
-                label = state.label.trim(),
+                label = state.effectiveLabel,
                 durationSeconds = state.totalSeconds,
                 notificationType = state.notificationType
             )
