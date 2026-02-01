@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,8 +20,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hazron.sequencetimer.domain.RunningTimerState
 import com.hazron.sequencetimer.domain.model.NotificationType
 import com.hazron.sequencetimer.domain.model.Timer
+import com.hazron.sequencetimer.ui.theme.TimerGreen
+import com.hazron.sequencetimer.ui.theme.TimerOrange
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,6 +91,7 @@ fun HomeScreen(
                 items(uiState.timers, key = { it.id }) { timer ->
                     TimerCard(
                         timer = timer,
+                        runningState = uiState.runningStates[timer.id],
                         onClick = { onTimerClick(timer.id) },
                         onEdit = { onEditTimer(timer.id) },
                         onDelete = { viewModel.deleteTimer(timer) }
@@ -100,16 +105,28 @@ fun HomeScreen(
 @Composable
 private fun TimerCard(
     timer: Timer,
+    runningState: RunningTimerState?,
     onClick: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
+    val isRunning = runningState?.isRunning == true && runningState.isPaused == false
+    val isPaused = runningState?.isPaused == true
+    val displayTime = runningState?.remainingSeconds ?: timer.durationSeconds
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick),
+        colors = if (isRunning) {
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            )
+        } else {
+            CardDefaults.cardColors()
+        }
     ) {
         Row(
             modifier = Modifier
@@ -117,6 +134,18 @@ private fun TimerCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Running indicator
+            if (isRunning || isPaused) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = if (isRunning) "Running" else "Paused",
+                    tint = if (isRunning) TimerGreen else TimerOrange,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .padding(end = 8.dp)
+                )
+            }
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = timer.label,
@@ -130,10 +159,31 @@ private fun TimerCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = formatDuration(timer.durationSeconds),
+                        text = formatDuration(displayTime),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isRunning) {
+                            TimerGreen
+                        } else if (isPaused) {
+                            TimerOrange
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                     )
+
+                    if (isRunning) {
+                        Text(
+                            text = "Running",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TimerGreen
+                        )
+                    } else if (isPaused) {
+                        Text(
+                            text = "Paused",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TimerOrange
+                        )
+                    }
+
                     Icon(
                         imageVector = when (timer.notificationType) {
                             NotificationType.SILENT -> Icons.Default.NotificationsOff

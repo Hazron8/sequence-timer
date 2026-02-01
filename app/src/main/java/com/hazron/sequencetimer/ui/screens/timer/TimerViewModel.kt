@@ -4,10 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hazron.sequencetimer.data.repository.TimerRepository
+import com.hazron.sequencetimer.domain.TimerStateManager
 import com.hazron.sequencetimer.domain.model.Timer
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,7 +31,8 @@ data class TimerUiState(
 @HiltViewModel
 class TimerViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val timerRepository: TimerRepository
+    private val timerRepository: TimerRepository,
+    private val timerStateManager: TimerStateManager
 ) : ViewModel() {
 
     private val timerId: Long = savedStateHandle.get<Long>("timerId") ?: -1
@@ -40,20 +40,28 @@ class TimerViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(TimerUiState())
     val uiState: StateFlow<TimerUiState> = _uiState.asStateFlow()
 
-    private var timerJob: Job? = null
-
     init {
         loadTimer()
+        observeTimerState()
     }
 
     private fun loadTimer() {
         viewModelScope.launch {
             val timer = timerRepository.getTimer(timerId)
             if (timer != null) {
+                // Initialize in state manager if not already
+                timerStateManager.initializeTimer(timer)
+
+                // Get current running state
+                val runningState = timerStateManager.getTimerState(timerId)
+
                 _uiState.update {
                     it.copy(
                         timer = timer,
-                        remainingSeconds = timer.durationSeconds,
+                        remainingSeconds = runningState?.remainingSeconds ?: timer.durationSeconds,
+                        isRunning = runningState?.isRunning ?: false,
+                        isPaused = runningState?.isPaused ?: false,
+                        isComplete = runningState?.isComplete ?: false,
                         isLoading = false
                     )
                 }
@@ -63,56 +71,39 @@ class TimerViewModel @Inject constructor(
         }
     }
 
-    fun startTimer() {
-        val state = _uiState.value
-        if (state.timer == null || state.isComplete) return
-
-        timerJob?.cancel()
-        _uiState.update { it.copy(isRunning = true, isPaused = false) }
-
-        timerJob = viewModelScope.launch {
-            while (_uiState.value.remainingSeconds > 0 && _uiState.value.isRunning) {
-                delay(1000)
-                if (_uiState.value.isRunning && !_uiState.value.isPaused) {
-                    _uiState.update { it.copy(remainingSeconds = it.remainingSeconds - 1) }
+    private fun observeTimerState() {
+        viewModelScope.launch {
+            timerStateManager.timerStates.collect { states ->
+                val state = states[timerId]
+                if (state != null) {
+                    _uiState.update {
+                        it.copy(
+                            remainingSeconds = state.remainingSeconds,
+                            isRunning = state.isRunning,
+                            isPaused = state.isPaused,
+                            isComplete = state.isComplete
+                        )
+                    }
                 }
-            }
-
-            if (_uiState.value.remainingSeconds <= 0) {
-                _uiState.update {
-                    it.copy(
-                        isRunning = false,
-                        isComplete = true
-                    )
-                }
-                // TODO: Trigger notification based on timer.notificationType
             }
         }
+    }
+
+    fun startTimer() {
+        val timer = _uiState.value.timer ?: return
+        timerStateManager.startTimer(timerId, timer.durationSeconds)
     }
 
     fun pauseTimer() {
-        _uiState.update { it.copy(isPaused = true) }
+        timerStateManager.pauseTimer(timerId)
     }
 
     fun resumeTimer() {
-        _uiState.update { it.copy(isPaused = false) }
+        timerStateManager.resumeTimer(timerId)
     }
 
     fun resetTimer() {
-        timerJob?.cancel()
-        val timer = _uiState.value.timer
-        _uiState.update {
-            it.copy(
-                remainingSeconds = timer?.durationSeconds ?: 0,
-                isRunning = false,
-                isPaused = false,
-                isComplete = false
-            )
-        }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        timerJob?.cancel()
+        val timer = _uiState.value.timer ?: return
+        timerStateManager.resetTimer(timerId, timer.durationSeconds)
     }
 }
