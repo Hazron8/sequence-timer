@@ -18,6 +18,7 @@ app/schemas/
 # Keystore
 *.jks
 *.keystore
+keystore/
 
 # Local configuration
 secrets.properties
