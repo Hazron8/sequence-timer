@@ -3,6 +3,7 @@ package com.hazron.sequencetimer.di
 import android.content.Context
 import androidx.room.Room
 import com.hazron.sequencetimer.data.local.CategoryDao
+import com.hazron.sequencetimer.data.local.SequenceDao
 import com.hazron.sequencetimer.data.local.TimerDao
 import com.hazron.sequencetimer.data.local.TimerDatabase
 import dagger.Module
@@ -33,7 +34,7 @@ object AppModule {
             TimerDatabase::class.java,
             "timer_database"
         )
-            .addMigrations(TimerDatabase.MIGRATION_1_2)
+            .addMigrations(TimerDatabase.MIGRATION_1_2, TimerDatabase.MIGRATION_2_3)
             .addCallback(TimerDatabase.Companion.DatabaseCallback(scope))
             .build()
     }
@@ -48,5 +49,11 @@ object AppModule {
     @Singleton
     fun provideCategoryDao(database: TimerDatabase): CategoryDao {
         return database.categoryDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideSequenceDao(database: TimerDatabase): SequenceDao {
+        return database.sequenceDao()
     }
 }

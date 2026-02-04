@@ -11,20 +11,23 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.hazron.sequencetimer.domain.model.Category
 import com.hazron.sequencetimer.domain.model.DefaultCategories
 import com.hazron.sequencetimer.domain.model.NotificationType
+import com.hazron.sequencetimer.domain.model.Sequence
+import com.hazron.sequencetimer.domain.model.SequenceStep
 import com.hazron.sequencetimer.domain.model.Timer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Database(
-    entities = [Timer::class, Category::class],
-    version = 2,
+    entities = [Timer::class, Category::class, Sequence::class, SequenceStep::class],
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class TimerDatabase : RoomDatabase() {
     abstract fun timerDao(): TimerDao
     abstract fun categoryDao(): CategoryDao
+    abstract fun sequenceDao(): SequenceDao
 
     companion object {
         /**
@@ -56,6 +59,44 @@ abstract class TimerDatabase : RoomDatabase() {
 
                 // Create index on categoryId
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_timers_categoryId ON timers (categoryId)")
+            }
+        }
+
+        /**
+         * Migration from version 2 to 3: Add sequences and sequence_steps tables
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Create sequences table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS sequences (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        categoryId INTEGER NOT NULL DEFAULT 1,
+                        createdAt INTEGER NOT NULL,
+                        sortOrder INTEGER NOT NULL DEFAULT 0,
+                        FOREIGN KEY (categoryId) REFERENCES categories(id) ON DELETE SET DEFAULT
+                    )
+                """)
+
+                // Create index on sequences categoryId
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_sequences_categoryId ON sequences (categoryId)")
+
+                // Create sequence_steps table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS sequence_steps (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        sequenceId INTEGER NOT NULL,
+                        label TEXT NOT NULL,
+                        durationSeconds INTEGER NOT NULL,
+                        notificationType TEXT NOT NULL DEFAULT 'SOUND',
+                        stepOrder INTEGER NOT NULL DEFAULT 0,
+                        FOREIGN KEY (sequenceId) REFERENCES sequences(id) ON DELETE CASCADE
+                    )
+                """)
+
+                // Create index on sequence_steps sequenceId
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_sequence_steps_sequenceId ON sequence_steps (sequenceId)")
             }
         }
 

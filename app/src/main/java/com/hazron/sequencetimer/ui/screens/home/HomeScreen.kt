@@ -19,6 +19,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hazron.sequencetimer.domain.RunningTimerState
 import com.hazron.sequencetimer.domain.model.Category
 import com.hazron.sequencetimer.domain.model.NotificationType
+import com.hazron.sequencetimer.domain.model.SequencePlaybackState
+import com.hazron.sequencetimer.domain.model.SequenceWithSteps
 import com.hazron.sequencetimer.domain.model.Timer
 import com.hazron.sequencetimer.ui.theme.TimerGreen
 import com.hazron.sequencetimer.ui.theme.TimerOrange
@@ -29,6 +31,9 @@ fun HomeScreen(
     onTimerClick: (Long) -> Unit,
     onAddTimer: () -> Unit,
     onEditTimer: (Long) -> Unit,
+    onSequenceClick: (Long) -> Unit,
+    onAddSequence: () -> Unit,
+    onEditSequence: (Long) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -40,8 +45,16 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddTimer) {
-                Icon(Icons.Default.Add, contentDescription = "Add Timer")
+            FloatingActionButton(
+                onClick = {
+                    if (uiState.selectedTab == HomeTab.TIMERS) {
+                        onAddTimer()
+                    } else {
+                        onAddSequence()
+                    }
+                }
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add")
             }
         }
     ) { padding ->
@@ -50,6 +63,24 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // Timers/Sequences tab selector
+            TabRow(
+                selectedTabIndex = if (uiState.selectedTab == HomeTab.TIMERS) 0 else 1
+            ) {
+                Tab(
+                    selected = uiState.selectedTab == HomeTab.TIMERS,
+                    onClick = { viewModel.selectTab(HomeTab.TIMERS) },
+                    text = { Text("Timers") },
+                    icon = { Icon(Icons.Default.Timer, contentDescription = null) }
+                )
+                Tab(
+                    selected = uiState.selectedTab == HomeTab.SEQUENCES,
+                    onClick = { viewModel.selectTab(HomeTab.SEQUENCES) },
+                    text = { Text("Sequences") },
+                    icon = { Icon(Icons.Default.PlaylistPlay, contentDescription = null) }
+                )
+            }
+
             // Category tabs
             if (uiState.categories.isNotEmpty()) {
                 CategoryTabs(
@@ -59,7 +90,7 @@ fun HomeScreen(
                 )
             }
 
-            // Timer list
+            // Content based on selected tab
             if (uiState.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -67,51 +98,280 @@ fun HomeScreen(
                 ) {
                     CircularProgressIndicator()
                 }
-            } else if (uiState.timers.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+            } else if (uiState.selectedTab == HomeTab.TIMERS) {
+                TimersList(
+                    timers = uiState.timers,
+                    categories = uiState.categories,
+                    runningStates = uiState.runningStates,
+                    selectedCategoryId = uiState.selectedCategoryId,
+                    onTimerClick = onTimerClick,
+                    onEditTimer = onEditTimer,
+                    onDeleteTimer = { viewModel.deleteTimer(it) }
+                )
+            } else {
+                SequencesList(
+                    sequences = uiState.sequences,
+                    categories = uiState.categories,
+                    sequenceStates = uiState.sequenceStates,
+                    selectedCategoryId = uiState.selectedCategoryId,
+                    onSequenceClick = onSequenceClick,
+                    onEditSequence = onEditSequence,
+                    onDeleteSequence = { viewModel.deleteSequence(it) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimersList(
+    timers: List<Timer>,
+    categories: List<Category>,
+    runningStates: Map<Long, RunningTimerState>,
+    selectedCategoryId: Long?,
+    onTimerClick: (Long) -> Unit,
+    onEditTimer: (Long) -> Unit,
+    onDeleteTimer: (Timer) -> Unit
+) {
+    if (timers.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = if (selectedCategoryId != null) {
+                        "No timers in this category"
+                    } else {
+                        "No timers yet"
+                    },
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Tap + to create your first timer",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(timers, key = { it.id }) { timer ->
+                TimerCard(
+                    timer = timer,
+                    runningState = runningStates[timer.id],
+                    category = categories.find { it.id == timer.categoryId },
+                    showCategory = selectedCategoryId == null,
+                    onClick = { onTimerClick(timer.id) },
+                    onEdit = { onEditTimer(timer.id) },
+                    onDelete = { onDeleteTimer(timer) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SequencesList(
+    sequences: List<SequenceWithSteps>,
+    categories: List<Category>,
+    sequenceStates: Map<Long, SequencePlaybackState>,
+    selectedCategoryId: Long?,
+    onSequenceClick: (Long) -> Unit,
+    onEditSequence: (Long) -> Unit,
+    onDeleteSequence: (Long) -> Unit
+) {
+    if (sequences.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = if (selectedCategoryId != null) {
+                        "No sequences in this category"
+                    } else {
+                        "No sequences yet"
+                    },
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Tap + to create your first sequence",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(sequences, key = { it.sequence.id }) { sequenceWithSteps ->
+                SequenceCard(
+                    sequenceWithSteps = sequenceWithSteps,
+                    playbackState = sequenceStates[sequenceWithSteps.sequence.id],
+                    category = categories.find { it.id == sequenceWithSteps.sequence.categoryId },
+                    showCategory = selectedCategoryId == null,
+                    onClick = { onSequenceClick(sequenceWithSteps.sequence.id) },
+                    onEdit = { onEditSequence(sequenceWithSteps.sequence.id) },
+                    onDelete = { onDeleteSequence(sequenceWithSteps.sequence.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SequenceCard(
+    sequenceWithSteps: SequenceWithSteps,
+    playbackState: SequencePlaybackState?,
+    category: Category?,
+    showCategory: Boolean,
+    onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    val isRunning = playbackState?.isRunning == true && playbackState.isPaused == false
+    val isPaused = playbackState?.isPaused == true
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = if (isRunning) {
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            )
+        } else {
+            CardDefaults.cardColors()
+        }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Running indicator
+            if (isRunning || isPaused) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = if (isRunning) "Running" else "Paused",
+                    tint = if (isRunning) TimerGreen else TimerOrange,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .padding(end = 8.dp)
+                )
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = sequenceWithSteps.sequence.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                    // Step count and total duration
+                    Text(
+                        text = "${sequenceWithSteps.stepCount} steps",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Text(
+                        text = formatDuration(sequenceWithSteps.totalDurationSeconds),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isRunning) {
+                            TimerGreen
+                        } else if (isPaused) {
+                            TimerOrange
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+
+                    if (isRunning) {
                         Text(
-                            text = if (uiState.selectedCategoryId != null) {
-                                "No timers in this category"
-                            } else {
-                                "No timers yet"
-                            },
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "Running",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TimerGreen
                         )
+                    } else if (isPaused) {
                         Text(
-                            text = "Tap + to create your first timer",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "Paused",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TimerOrange
                         )
                     }
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(uiState.timers, key = { it.id }) { timer ->
-                        TimerCard(
-                            timer = timer,
-                            runningState = uiState.runningStates[timer.id],
-                            category = uiState.categories.find { it.id == timer.categoryId },
-                            showCategory = uiState.selectedCategoryId == null,
-                            onClick = { onTimerClick(timer.id) },
-                            onEdit = { onEditTimer(timer.id) },
-                            onDelete = { viewModel.deleteTimer(timer) }
+
+                    // Show category badge when viewing "All"
+                    if (showCategory && category != null) {
+                        SuggestionChip(
+                            onClick = { },
+                            label = {
+                                Text(
+                                    text = category.name,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            },
+                            modifier = Modifier.height(24.dp)
                         )
                     }
                 }
             }
+
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Default.Edit, contentDescription = "Edit")
+            }
+
+            IconButton(onClick = { showDeleteDialog = true }) {
+                Icon(Icons.Default.Delete, contentDescription = "Delete")
+            }
         }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Sequence") },
+            text = { Text("Are you sure you want to delete \"${sequenceWithSteps.sequence.name}\"?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete()
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
