@@ -22,3 +22,6 @@ keystore/
 
 # Local configuration
 secrets.properties
+
+# Firebase configuration (contains API keys)
+google-services.json

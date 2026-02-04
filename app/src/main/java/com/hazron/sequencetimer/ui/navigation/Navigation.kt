@@ -10,6 +10,7 @@ import com.hazron.sequencetimer.ui.screens.edit.EditTimerScreen
 import com.hazron.sequencetimer.ui.screens.home.HomeScreen
 import com.hazron.sequencetimer.ui.screens.sequence.SequenceBuilderScreen
 import com.hazron.sequencetimer.ui.screens.sequence.SequencePlaybackScreen
+import com.hazron.sequencetimer.ui.screens.settings.SettingsScreen
 import com.hazron.sequencetimer.ui.screens.timer.TimerScreen
 
 sealed class Screen(val route: String) {
@@ -26,6 +27,7 @@ sealed class Screen(val route: String) {
     object SequencePlayback : Screen("sequence/play/{sequenceId}") {
         fun createRoute(sequenceId: Long) = "sequence/play/$sequenceId"
     }
+    object Settings : Screen("settings")
 }
 
 @Composable
@@ -55,6 +57,9 @@ fun SequenceTimerNavHost() {
                 },
                 onEditSequence = { sequenceId ->
                     navController.navigate(Screen.SequenceBuilder.createRoute(sequenceId))
+                },
+                onSettings = {
+                    navController.navigate(Screen.Settings.route)
                 }
             )
         }
@@ -101,6 +106,12 @@ fun SequenceTimerNavHost() {
             )
         ) {
             SequencePlaybackScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Settings.route) {
+            SettingsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

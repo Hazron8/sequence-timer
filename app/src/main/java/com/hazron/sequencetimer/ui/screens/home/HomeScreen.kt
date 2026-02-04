@@ -34,6 +34,7 @@ fun HomeScreen(
     onSequenceClick: (Long) -> Unit,
     onAddSequence: () -> Unit,
     onEditSequence: (Long) -> Unit,
+    onSettings: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -41,7 +42,12 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Sequence Timer") }
+                title = { Text("Sequence Timer") },
+                actions = {
+                    IconButton(onClick = onSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                }
             )
         },
         floatingActionButton = {
