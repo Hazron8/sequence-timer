@@ -12,6 +12,8 @@ class TimerRepository @Inject constructor(
 ) {
     fun getAllTimers(): Flow<List<Timer>> = timerDao.getAllTimers()
 
+    fun getTimersByCategory(categoryId: Long): Flow<List<Timer>> = timerDao.getTimersByCategory(categoryId)
+
     fun getTimerById(id: Long): Flow<Timer?> = timerDao.getTimerByIdFlow(id)
 
     suspend fun getTimer(id: Long): Timer? = timerDao.getTimerById(id)
@@ -26,4 +28,7 @@ class TimerRepository @Inject constructor(
     suspend fun deleteTimer(timer: Timer) = timerDao.deleteTimer(timer)
 
     suspend fun deleteTimerById(id: Long) = timerDao.deleteTimerById(id)
+
+    suspend fun moveTimersToCategory(fromCategoryId: Long, toCategoryId: Long) =
+        timerDao.moveTimersToCategory(fromCategoryId, toCategoryId)
 }
