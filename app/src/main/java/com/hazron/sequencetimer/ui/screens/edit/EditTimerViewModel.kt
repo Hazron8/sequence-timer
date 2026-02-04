@@ -3,7 +3,10 @@ package com.hazron.sequencetimer.ui.screens.edit
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hazron.sequencetimer.data.repository.CategoryRepository
 import com.hazron.sequencetimer.data.repository.TimerRepository
+import com.hazron.sequencetimer.domain.model.Category
+import com.hazron.sequencetimer.domain.model.DefaultCategories
 import com.hazron.sequencetimer.domain.model.NotificationType
 import com.hazron.sequencetimer.domain.model.Timer
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,6 +27,8 @@ data class EditTimerUiState(
     val minutes: Int = 5,
     val seconds: Int = 0,
     val notificationType: NotificationType = NotificationType.SOUND,
+    val categoryId: Long = DefaultCategories.GENERAL_CATEGORY_ID,
+    val categories: List<Category> = emptyList(),
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val isNewTimer: Boolean = true
@@ -39,12 +44,16 @@ data class EditTimerUiState(
 
     val effectiveLabel: String
         get() = if (label.isBlank()) defaultLabel else label.trim()
+
+    val selectedCategory: Category?
+        get() = categories.find { it.id == categoryId }
 }
 
 @HiltViewModel
 class EditTimerViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val timerRepository: TimerRepository
+    private val timerRepository: TimerRepository,
+    private val categoryRepository: CategoryRepository
 ) : ViewModel() {
 
     private val timerId: Long = savedStateHandle.get<Long>("timerId") ?: -1
@@ -53,10 +62,19 @@ class EditTimerViewModel @Inject constructor(
     val uiState: StateFlow<EditTimerUiState> = _uiState.asStateFlow()
 
     init {
+        loadCategories()
         if (timerId > 0) {
             loadTimer()
         } else {
             loadDefaultLabel()
+        }
+    }
+
+    private fun loadCategories() {
+        viewModelScope.launch {
+            categoryRepository.ensureDefaultCategories()
+            val categories = categoryRepository.getAllCategoriesSync()
+            _uiState.update { it.copy(categories = categories) }
         }
     }
 
@@ -91,6 +109,7 @@ class EditTimerViewModel @Inject constructor(
                         minutes = minutes,
                         seconds = seconds,
                         notificationType = timer.notificationType,
+                        categoryId = timer.categoryId,
                         isLoading = false,
                         isNewTimer = false
                     )
@@ -125,6 +144,10 @@ class EditTimerViewModel @Inject constructor(
         _uiState.update { it.copy(notificationType = type) }
     }
 
+    fun updateCategory(categoryId: Long) {
+        _uiState.update { it.copy(categoryId = categoryId) }
+    }
+
     fun saveTimer(onComplete: () -> Unit) {
         val state = _uiState.value
         if (!state.isValid) return
@@ -136,7 +159,8 @@ class EditTimerViewModel @Inject constructor(
                 id = state.timerId ?: 0,
                 label = state.effectiveLabel,
                 durationSeconds = state.totalSeconds,
-                notificationType = state.notificationType
+                notificationType = state.notificationType,
+                categoryId = state.categoryId
             )
 
             if (state.isNewTimer) {

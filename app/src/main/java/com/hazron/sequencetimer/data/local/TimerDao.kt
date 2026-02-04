@@ -10,6 +10,9 @@ interface TimerDao {
     @Query("SELECT * FROM timers ORDER BY sortOrder ASC, createdAt ASC")
     fun getAllTimers(): Flow<List<Timer>>
 
+    @Query("SELECT * FROM timers WHERE categoryId = :categoryId ORDER BY sortOrder ASC, createdAt ASC")
+    fun getTimersByCategory(categoryId: Long): Flow<List<Timer>>
+
     @Query("SELECT * FROM timers WHERE id = :id")
     suspend fun getTimerById(id: Long): Timer?
 
@@ -33,4 +36,7 @@ interface TimerDao {
 
     @Query("SELECT MAX(sortOrder) FROM timers")
     suspend fun getMaxSortOrder(): Int?
+
+    @Query("UPDATE timers SET categoryId = :newCategoryId WHERE categoryId = :oldCategoryId")
+    suspend fun moveTimersToCategory(oldCategoryId: Long, newCategoryId: Long)
 }

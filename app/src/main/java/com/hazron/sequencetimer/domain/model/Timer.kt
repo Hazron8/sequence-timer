@@ -1,18 +1,32 @@
 package com.hazron.sequencetimer.domain.model
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
  * Represents a timer that can be started, paused, and completed.
  */
-@Entity(tableName = "timers")
+@Entity(
+    tableName = "timers",
+    foreignKeys = [
+        ForeignKey(
+            entity = Category::class,
+            parentColumns = ["id"],
+            childColumns = ["categoryId"],
+            onDelete = ForeignKey.SET_DEFAULT
+        )
+    ],
+    indices = [Index("categoryId")]
+)
 data class Timer(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val label: String,
     val durationSeconds: Long,
     val notificationType: NotificationType = NotificationType.SOUND,
+    val categoryId: Long = DefaultCategories.GENERAL_CATEGORY_ID,
     val createdAt: Long = System.currentTimeMillis(),
     val sortOrder: Int = 0
 )

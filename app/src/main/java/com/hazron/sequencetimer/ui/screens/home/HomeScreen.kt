@@ -1,17 +1,13 @@
 package com.hazron.sequencetimer.ui.screens.home
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.NotificationsOff
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hazron.sequencetimer.domain.RunningTimerState
+import com.hazron.sequencetimer.domain.model.Category
 import com.hazron.sequencetimer.domain.model.NotificationType
 import com.hazron.sequencetimer.domain.model.Timer
 import com.hazron.sequencetimer.ui.theme.TimerGreen
@@ -48,54 +45,70 @@ fun HomeScreen(
             }
         }
     ) { padding ->
-        if (uiState.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            // Category tabs
+            if (uiState.categories.isNotEmpty()) {
+                CategoryTabs(
+                    categories = uiState.categories,
+                    selectedCategoryId = uiState.selectedCategoryId,
+                    onCategorySelected = { viewModel.selectCategory(it) }
+                )
             }
-        } else if (uiState.timers.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+
+            // Timer list
+            if (uiState.isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "No timers yet",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "Tap + to create your first timer",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    CircularProgressIndicator()
                 }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(uiState.timers, key = { it.id }) { timer ->
-                    TimerCard(
-                        timer = timer,
-                        runningState = uiState.runningStates[timer.id],
-                        onClick = { onTimerClick(timer.id) },
-                        onEdit = { onEditTimer(timer.id) },
-                        onDelete = { viewModel.deleteTimer(timer) }
-                    )
+            } else if (uiState.timers.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = if (uiState.selectedCategoryId != null) {
+                                "No timers in this category"
+                            } else {
+                                "No timers yet"
+                            },
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Tap + to create your first timer",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(uiState.timers, key = { it.id }) { timer ->
+                        TimerCard(
+                            timer = timer,
+                            runningState = uiState.runningStates[timer.id],
+                            category = uiState.categories.find { it.id == timer.categoryId },
+                            showCategory = uiState.selectedCategoryId == null,
+                            onClick = { onTimerClick(timer.id) },
+                            onEdit = { onEditTimer(timer.id) },
+                            onDelete = { viewModel.deleteTimer(timer) }
+                        )
+                    }
                 }
             }
         }
@@ -103,9 +116,80 @@ fun HomeScreen(
 }
 
 @Composable
+private fun CategoryTabs(
+    categories: List<Category>,
+    selectedCategoryId: Long?,
+    onCategorySelected: (Long?) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // "All" tab
+        FilterChip(
+            selected = selectedCategoryId == null,
+            onClick = { onCategorySelected(null) },
+            label = { Text("All") },
+            leadingIcon = if (selectedCategoryId == null) {
+                {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(FilterChipDefaults.IconSize)
+                    )
+                }
+            } else null
+        )
+
+        // Category tabs
+        categories.forEach { category ->
+            FilterChip(
+                selected = selectedCategoryId == category.id,
+                onClick = { onCategorySelected(category.id) },
+                label = { Text(category.name) },
+                leadingIcon = if (selectedCategoryId == category.id) {
+                    {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                        )
+                    }
+                } else {
+                    {
+                        Icon(
+                            imageVector = getCategoryIcon(category.icon),
+                            contentDescription = null,
+                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                        )
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun getCategoryIcon(iconName: String?): androidx.compose.ui.graphics.vector.ImageVector {
+    return when (iconName) {
+        "timer" -> Icons.Default.Timer
+        "self_improvement" -> Icons.Default.SelfImprovement
+        "fitness_center" -> Icons.Default.FitnessCenter
+        "restaurant" -> Icons.Default.Restaurant
+        "work" -> Icons.Default.Work
+        else -> Icons.Default.Category
+    }
+}
+
+@Composable
 private fun TimerCard(
     timer: Timer,
     runningState: RunningTimerState?,
+    category: Category?,
+    showCategory: Boolean,
     onClick: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
@@ -181,6 +265,20 @@ private fun TimerCard(
                             text = "Paused",
                             style = MaterialTheme.typography.labelSmall,
                             color = TimerOrange
+                        )
+                    }
+
+                    // Show category badge when viewing "All"
+                    if (showCategory && category != null) {
+                        SuggestionChip(
+                            onClick = { },
+                            label = {
+                                Text(
+                                    text = category.name,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            },
+                            modifier = Modifier.height(24.dp)
                         )
                     }
 
