@@ -1,12 +1,15 @@
 package com.hazron.sequencetimer.ui.screens.timer
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hazron.sequencetimer.data.repository.TimerRepository
 import com.hazron.sequencetimer.domain.TimerStateManager
 import com.hazron.sequencetimer.domain.model.Timer
+import com.hazron.sequencetimer.service.TimerService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,7 +35,8 @@ data class TimerUiState(
 class TimerViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val timerRepository: TimerRepository,
-    private val timerStateManager: TimerStateManager
+    private val timerStateManager: TimerStateManager,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val timerId: Long = savedStateHandle.get<Long>("timerId") ?: -1
@@ -91,6 +95,8 @@ class TimerViewModel @Inject constructor(
 
     fun startTimer() {
         val timer = _uiState.value.timer ?: return
+        // Start foreground service to ensure timer runs in background
+        TimerService.startService(context, timerId)
         timerStateManager.startTimer(timerId, timer.durationSeconds)
     }
 
