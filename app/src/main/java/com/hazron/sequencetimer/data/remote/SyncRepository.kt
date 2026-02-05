@@ -188,7 +188,7 @@ class SyncRepository @Inject constructor(
                     id = (doc.getLong("id") ?: return@mapNotNull null),
                     name = doc.getString("name") ?: return@mapNotNull null,
                     icon = doc.getString("icon"),
-                    color = doc.getLong("color")?.toInt(),
+                    color = doc.getLong("color"),
                     sortOrder = (doc.getLong("sortOrder") ?: 0).toInt(),
                     isDefault = doc.getBoolean("isDefault") ?: false
                 )
