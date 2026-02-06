@@ -18,7 +18,7 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "com.hazron.sequencetimer"
-    compileSdk = 34
+    compileSdk = 35
 
     signingConfigs {
         create("release") {
@@ -34,9 +34,9 @@ android {
     defaultConfig {
         applicationId = "com.hazron.sequencetimer"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        targetSdk = 35
+        versionCode = 2
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
