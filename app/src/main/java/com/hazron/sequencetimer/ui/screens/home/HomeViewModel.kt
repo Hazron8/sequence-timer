@@ -118,6 +118,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun duplicateTimer(timerId: Long) {
+        viewModelScope.launch {
+            timerRepository.duplicateTimer(timerId)
+        }
+    }
+
     fun deleteSequence(sequenceId: Long) {
         viewModelScope.launch {
             sequenceStateManager.clearSequence(sequenceId)

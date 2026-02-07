@@ -31,4 +31,18 @@ class TimerRepository @Inject constructor(
 
     suspend fun moveTimersToCategory(fromCategoryId: Long, toCategoryId: Long) =
         timerDao.moveTimersToCategory(fromCategoryId, toCategoryId)
+
+    /**
+     * Duplicate an existing timer.
+     * Returns the new timer ID, or null if the original timer was not found.
+     */
+    suspend fun duplicateTimer(timerId: Long): Long? {
+        val original = getTimer(timerId) ?: return null
+        val newTimer = original.copy(
+            id = 0,
+            label = "${original.label} (copy)",
+            createdAt = System.currentTimeMillis()
+        )
+        return insertTimer(newTimer)
+    }
 }

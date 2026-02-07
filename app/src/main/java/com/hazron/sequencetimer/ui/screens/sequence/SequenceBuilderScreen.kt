@@ -158,6 +158,7 @@ fun SequenceBuilderScreen(
                         onDurationChange = { h, m, s -> viewModel.updateStepDuration(index, h, m, s) },
                         onNotificationTypeChange = { viewModel.updateStepNotificationType(index, it) },
                         onDelete = { viewModel.removeStep(index) },
+                        onDuplicate = { viewModel.duplicateStep(index) },
                         onMoveUp = { viewModel.moveStep(index, index - 1) },
                         onMoveDown = { viewModel.moveStep(index, index + 1) }
                     )
@@ -183,6 +184,7 @@ private fun StepCard(
     onDurationChange: (Int, Int, Int) -> Unit,
     onNotificationTypeChange: (NotificationType) -> Unit,
     onDelete: () -> Unit,
+    onDuplicate: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit
 ) {
@@ -229,6 +231,16 @@ private fun StepCard(
                         Icon(
                             Icons.Default.KeyboardArrowDown,
                             contentDescription = "Move Down",
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onDuplicate,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = "Duplicate",
                             modifier = Modifier.size(20.dp)
                         )
                     }

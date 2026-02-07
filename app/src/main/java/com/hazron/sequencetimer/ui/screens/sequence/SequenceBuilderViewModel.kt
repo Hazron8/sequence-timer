@@ -192,6 +192,24 @@ class SequenceBuilderViewModel @Inject constructor(
         }
     }
 
+    fun duplicateStep(stepIndex: Int) {
+        _uiState.update { state ->
+            if (stepIndex in state.steps.indices) {
+                val originalStep = state.steps[stepIndex]
+                val duplicatedStep = originalStep.copy(
+                    id = 0,
+                    tempId = System.nanoTime(),
+                    label = "${originalStep.label} (copy)"
+                )
+                val newSteps = state.steps.toMutableList()
+                newSteps.add(stepIndex + 1, duplicatedStep)
+                state.copy(steps = newSteps)
+            } else {
+                state
+            }
+        }
+    }
+
     fun saveSequence(onSuccess: () -> Unit) {
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
