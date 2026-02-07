@@ -113,7 +113,8 @@ fun HomeScreen(
                     selectedCategoryId = uiState.selectedCategoryId,
                     onTimerClick = onTimerClick,
                     onEditTimer = onEditTimer,
-                    onDeleteTimer = { viewModel.deleteTimer(it) }
+                    onDeleteTimer = { viewModel.deleteTimer(it) },
+                    onDuplicateTimer = { viewModel.duplicateTimer(it) }
                 )
             } else {
                 SequencesList(
@@ -140,7 +141,8 @@ private fun TimersList(
     selectedCategoryId: Long?,
     onTimerClick: (Long) -> Unit,
     onEditTimer: (Long) -> Unit,
-    onDeleteTimer: (Timer) -> Unit
+    onDeleteTimer: (Timer) -> Unit,
+    onDuplicateTimer: (Long) -> Unit
 ) {
     if (timers.isEmpty()) {
         Box(
@@ -181,7 +183,8 @@ private fun TimersList(
                     showCategory = selectedCategoryId == null,
                     onClick = { onTimerClick(timer.id) },
                     onEdit = { onEditTimer(timer.id) },
-                    onDelete = { onDeleteTimer(timer) }
+                    onDelete = { onDeleteTimer(timer) },
+                    onDuplicate = { onDuplicateTimer(timer.id) }
                 )
             }
         }
@@ -533,9 +536,11 @@ private fun TimerCard(
     showCategory: Boolean,
     onClick: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onDuplicate: () -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showOptionsMenu by remember { mutableStateOf(false) }
 
     val isRunning = runningState?.isRunning == true && runningState.isPaused == false
     val isPaused = runningState?.isPaused == true
@@ -636,12 +641,46 @@ private fun TimerCard(
                 }
             }
 
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit")
-            }
-
-            IconButton(onClick = { showDeleteDialog = true }) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete")
+            // Options menu
+            Box {
+                IconButton(onClick = { showOptionsMenu = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                }
+                DropdownMenu(
+                    expanded = showOptionsMenu,
+                    onDismissRequest = { showOptionsMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Edit") },
+                        onClick = {
+                            showOptionsMenu = false
+                            onEdit()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Duplicate") },
+                        onClick = {
+                            showOptionsMenu = false
+                            onDuplicate()
+                        },
+                        leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete") },
+                        onClick = {
+                            showOptionsMenu = false
+                            showDeleteDialog = true
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    )
+                }
             }
         }
     }
