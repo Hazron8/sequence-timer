@@ -10,10 +10,12 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import com.hazron.sequencetimer.di.FirebaseAvailability
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -35,30 +37,46 @@ data class UserInfo(
 @Singleton
 class AuthRepository @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth?,
+    private val firebaseAvailability: FirebaseAvailability
 ) {
-    private val credentialManager = CredentialManager.create(context)
+    private val credentialManager: CredentialManager? = if (firebaseAvailability.isAvailable) {
+        CredentialManager.create(context)
+    } else {
+        null
+    }
 
-    val authState: Flow<AuthState> = callbackFlow {
-        val listener = FirebaseAuth.AuthStateListener { auth ->
-            val user = auth.currentUser
-            if (user != null) {
-                trySend(AuthState.SignedIn(user.toUserInfo()))
-            } else {
-                trySend(AuthState.SignedOut)
+    val isFirebaseAvailable: Boolean
+        get() = firebaseAvailability.isAvailable && firebaseAuth != null
+
+    val authState: Flow<AuthState> = if (firebaseAuth != null) {
+        callbackFlow {
+            val listener = FirebaseAuth.AuthStateListener { auth ->
+                val user = auth.currentUser
+                if (user != null) {
+                    trySend(AuthState.SignedIn(user.toUserInfo()))
+                } else {
+                    trySend(AuthState.SignedOut)
+                }
             }
+            firebaseAuth.addAuthStateListener(listener)
+            awaitClose { firebaseAuth.removeAuthStateListener(listener) }
         }
-        firebaseAuth.addAuthStateListener(listener)
-        awaitClose { firebaseAuth.removeAuthStateListener(listener) }
+    } else {
+        flowOf(AuthState.SignedOut)
     }
 
     val currentUser: FirebaseUser?
-        get() = firebaseAuth.currentUser
+        get() = firebaseAuth?.currentUser
 
     val isSignedIn: Boolean
-        get() = firebaseAuth.currentUser != null
+        get() = firebaseAuth?.currentUser != null
 
     suspend fun signInWithGoogle(webClientId: String): Result<UserInfo> {
+        if (firebaseAuth == null || credentialManager == null) {
+            return Result.failure(Exception("Firebase is not available"))
+        }
+
         return try {
             val googleIdOption = GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(false)
@@ -78,6 +96,10 @@ class AuthRepository @Inject constructor(
     }
 
     private suspend fun handleSignInResult(result: GetCredentialResponse): Result<UserInfo> {
+        if (firebaseAuth == null) {
+            return Result.failure(Exception("Firebase is not available"))
+        }
+
         return when (val credential = result.credential) {
             is CustomCredential -> {
                 if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
@@ -99,7 +121,7 @@ class AuthRepository @Inject constructor(
     }
 
     fun signOut() {
-        firebaseAuth.signOut()
+        firebaseAuth?.signOut()
     }
 
     private fun FirebaseUser.toUserInfo() = UserInfo(

@@ -5,6 +5,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -42,7 +43,7 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Sequence Timer") },
+                title = { Text("BetterTimer") },
                 actions = {
                     IconButton(onClick = onSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
@@ -122,7 +123,9 @@ fun HomeScreen(
                     selectedCategoryId = uiState.selectedCategoryId,
                     onSequenceClick = onSequenceClick,
                     onEditSequence = onEditSequence,
-                    onDeleteSequence = { viewModel.deleteSequence(it) }
+                    onDeleteSequence = { viewModel.deleteSequence(it) },
+                    onDuplicateSequence = { viewModel.duplicateSequence(it) },
+                    onMoveSequence = { from, to -> viewModel.moveSequence(from, to) }
                 )
             }
         }
@@ -193,7 +196,9 @@ private fun SequencesList(
     selectedCategoryId: Long?,
     onSequenceClick: (Long) -> Unit,
     onEditSequence: (Long) -> Unit,
-    onDeleteSequence: (Long) -> Unit
+    onDeleteSequence: (Long) -> Unit,
+    onDuplicateSequence: (Long) -> Unit,
+    onMoveSequence: (Int, Int) -> Unit
 ) {
     if (sequences.isEmpty()) {
         Box(
@@ -226,15 +231,20 @@ private fun SequencesList(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(sequences, key = { it.sequence.id }) { sequenceWithSteps ->
+            itemsIndexed(sequences, key = { _, item -> item.sequence.id }) { index, sequenceWithSteps ->
                 SequenceCard(
                     sequenceWithSteps = sequenceWithSteps,
                     playbackState = sequenceStates[sequenceWithSteps.sequence.id],
                     category = categories.find { it.id == sequenceWithSteps.sequence.categoryId },
                     showCategory = selectedCategoryId == null,
+                    canMoveUp = index > 0,
+                    canMoveDown = index < sequences.size - 1,
                     onClick = { onSequenceClick(sequenceWithSteps.sequence.id) },
                     onEdit = { onEditSequence(sequenceWithSteps.sequence.id) },
-                    onDelete = { onDeleteSequence(sequenceWithSteps.sequence.id) }
+                    onDelete = { onDeleteSequence(sequenceWithSteps.sequence.id) },
+                    onDuplicate = { onDuplicateSequence(sequenceWithSteps.sequence.id) },
+                    onMoveUp = { onMoveSequence(index, index - 1) },
+                    onMoveDown = { onMoveSequence(index, index + 1) }
                 )
             }
         }
@@ -247,11 +257,17 @@ private fun SequenceCard(
     playbackState: SequencePlaybackState?,
     category: Category?,
     showCategory: Boolean,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
     onClick: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onDuplicate: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showOptionsMenu by remember { mutableStateOf(false) }
 
     val isRunning = playbackState?.isRunning == true && playbackState.isPaused == false
     val isPaused = playbackState?.isPaused == true
@@ -347,12 +363,71 @@ private fun SequenceCard(
                 }
             }
 
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit")
+            // Reorder buttons
+            IconButton(
+                onClick = onMoveUp,
+                enabled = canMoveUp,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    Icons.Default.KeyboardArrowUp,
+                    contentDescription = "Move Up",
+                    modifier = Modifier.size(20.dp)
+                )
             }
 
-            IconButton(onClick = { showDeleteDialog = true }) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete")
+            IconButton(
+                onClick = onMoveDown,
+                enabled = canMoveDown,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Move Down",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            // Options menu
+            Box {
+                IconButton(onClick = { showOptionsMenu = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                }
+                DropdownMenu(
+                    expanded = showOptionsMenu,
+                    onDismissRequest = { showOptionsMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Edit") },
+                        onClick = {
+                            showOptionsMenu = false
+                            onEdit()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Duplicate") },
+                        onClick = {
+                            showOptionsMenu = false
+                            onDuplicate()
+                        },
+                        leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete") },
+                        onClick = {
+                            showOptionsMenu = false
+                            showDeleteDialog = true
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    )
+                }
             }
         }
     }

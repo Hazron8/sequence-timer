@@ -142,4 +142,22 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
+
+    fun duplicateSequence(sequenceId: Long) {
+        viewModelScope.launch {
+            sequenceRepository.duplicateSequence(sequenceId)
+        }
+    }
+
+    fun moveSequence(fromIndex: Int, toIndex: Int) {
+        viewModelScope.launch {
+            val sequences = uiState.value.sequences
+            if (fromIndex in sequences.indices && toIndex in sequences.indices) {
+                val orderedIds = sequences.map { it.sequence.id }.toMutableList()
+                val moved = orderedIds.removeAt(fromIndex)
+                orderedIds.add(toIndex, moved)
+                sequenceRepository.reorderSequences(orderedIds)
+            }
+        }
+    }
 }

@@ -92,4 +92,38 @@ class SequenceRepository @Inject constructor(
         sequenceDao.insertSteps(sequenceSteps)
         return sequenceId
     }
+
+    /**
+     * Duplicate an existing sequence with all its steps.
+     * Returns the new sequence ID, or null if the original sequence was not found.
+     */
+    suspend fun duplicateSequence(sequenceId: Long): Long? {
+        val original = getSequenceWithSteps(sequenceId) ?: return null
+
+        val newSequence = original.sequence.copy(
+            id = 0,
+            name = "${original.sequence.name} (copy)",
+            createdAt = System.currentTimeMillis()
+        )
+        val newSequenceId = insertSequence(newSequence)
+
+        val newSteps = original.sortedSteps.map { step ->
+            step.copy(
+                id = 0,
+                sequenceId = newSequenceId
+            )
+        }
+        insertSteps(newSteps)
+
+        return newSequenceId
+    }
+
+    /**
+     * Reorder sequences by updating their sort order.
+     */
+    suspend fun reorderSequences(orderedIds: List<Long>) {
+        orderedIds.forEachIndexed { index, id ->
+            sequenceDao.updateSequenceSortOrder(id, index)
+        }
+    }
 }

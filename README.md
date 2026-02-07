@@ -1,4 +1,4 @@
-# Sequence Timer
+# BetterTimer
 
 Android app for sequential cooking timers with customizable notifications.
 

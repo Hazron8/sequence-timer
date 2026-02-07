@@ -1,5 +1,6 @@
 package com.hazron.sequencetimer.ui.screens.sequence
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -185,7 +186,7 @@ private fun StepCard(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var showDurationPicker by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -255,39 +256,37 @@ private fun StepCard(
                 singleLine = true
             )
 
-            // Compact duration picker
-            Text(
-                text = "Duration",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Duration - clickable to open WheelPicker dialog
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDurationPicker = true },
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.surfaceVariant
             ) {
-                CompactNumberPicker(
-                    value = step.hours,
-                    onValueChange = { onDurationChange(it, step.minutes, step.seconds) },
-                    range = 0..23,
-                    label = "h",
-                    modifier = Modifier.weight(1f)
-                )
-                CompactNumberPicker(
-                    value = step.minutes,
-                    onValueChange = { onDurationChange(step.hours, it, step.seconds) },
-                    range = 0..59,
-                    label = "m",
-                    modifier = Modifier.weight(1f)
-                )
-                CompactNumberPicker(
-                    value = step.seconds,
-                    onValueChange = { onDurationChange(step.hours, step.minutes, it) },
-                    range = 0..59,
-                    label = "s",
-                    modifier = Modifier.weight(1f)
-                )
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Duration",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = formatDuration(step.durationSeconds),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Edit duration",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
 
             // Notification type selector (compact)
@@ -315,46 +314,19 @@ private fun StepCard(
             }
         }
     }
-}
 
-@Composable
-private fun CompactNumberPicker(
-    value: Int,
-    onValueChange: (Int) -> Unit,
-    range: IntRange,
-    label: String,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(
-            onClick = { if (value > range.first) onValueChange(value - 1) },
-            modifier = Modifier.size(36.dp)
-        ) {
-            Icon(Icons.Default.Remove, contentDescription = "Decrease")
-        }
-
-        Text(
-            text = String.format("%02d", value),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(horizontal = 4.dp)
+    // Duration picker dialog
+    if (showDurationPicker) {
+        DurationPickerDialog(
+            hours = step.hours,
+            minutes = step.minutes,
+            seconds = step.seconds,
+            onConfirm = { h, m, s ->
+                onDurationChange(h, m, s)
+                showDurationPicker = false
+            },
+            onDismiss = { showDurationPicker = false }
         )
-
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        IconButton(
-            onClick = { if (value < range.last) onValueChange(value + 1) },
-            modifier = Modifier.size(36.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Increase")
-        }
     }
 }
 
@@ -401,6 +373,44 @@ private fun CategoryDropdown(
             }
         }
     }
+}
+
+@Composable
+private fun DurationPickerDialog(
+    hours: Int,
+    minutes: Int,
+    seconds: Int,
+    onConfirm: (Int, Int, Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var tempHours by remember { mutableIntStateOf(hours) }
+    var tempMinutes by remember { mutableIntStateOf(minutes) }
+    var tempSeconds by remember { mutableIntStateOf(seconds) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Set Duration") },
+        text = {
+            TimeDurationPicker(
+                hours = tempHours,
+                minutes = tempMinutes,
+                seconds = tempSeconds,
+                onHoursChange = { tempHours = it },
+                onMinutesChange = { tempMinutes = it },
+                onSecondsChange = { tempSeconds = it }
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(tempHours, tempMinutes, tempSeconds) }) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 private fun formatDuration(totalSeconds: Long): String {

@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SettingsUiState(
+    val isFirebaseAvailable: Boolean = false,
     val authState: AuthState = AuthState.Loading,
     val syncStatus: SyncStatus = SyncStatus.Idle,
     val lastSyncTime: Long? = null,
@@ -40,7 +41,8 @@ class SettingsViewModel @Inject constructor(
         _errorMessage
     ) { authState, syncStatus, lastSyncTime, errorMessage ->
         SettingsUiState(
-            authState = authState,
+            isFirebaseAvailable = authRepository.isFirebaseAvailable,
+            authState = if (authRepository.isFirebaseAvailable) authState else AuthState.SignedOut,
             syncStatus = syncStatus,
             lastSyncTime = lastSyncTime,
             errorMessage = errorMessage
@@ -48,7 +50,7 @@ class SettingsViewModel @Inject constructor(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = SettingsUiState()
+        initialValue = SettingsUiState(isFirebaseAvailable = authRepository.isFirebaseAvailable)
     )
 
     fun signIn() {
