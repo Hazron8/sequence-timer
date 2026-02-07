@@ -137,7 +137,7 @@ class TimerService : Service() {
         )
 
         return NotificationCompat.Builder(this, SequenceTimerApp.CHANNEL_ONGOING)
-            .setContentTitle("Sequence Timer")
+            .setContentTitle("BetterTimer")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentIntent(pendingIntent)

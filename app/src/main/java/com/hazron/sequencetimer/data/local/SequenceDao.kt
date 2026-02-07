@@ -86,4 +86,7 @@ interface SequenceDao {
 
     @Query("UPDATE sequences SET categoryId = :newCategoryId WHERE categoryId = :oldCategoryId")
     suspend fun moveSequencesToCategory(oldCategoryId: Long, newCategoryId: Long)
+
+    @Query("UPDATE sequences SET sortOrder = :sortOrder WHERE id = :id")
+    suspend fun updateSequenceSortOrder(id: Long, sortOrder: Int)
 }

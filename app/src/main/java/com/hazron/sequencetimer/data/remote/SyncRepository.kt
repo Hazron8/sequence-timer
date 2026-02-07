@@ -24,12 +24,15 @@ sealed class SyncStatus {
 
 @Singleton
 class SyncRepository @Inject constructor(
-    private val firestore: FirebaseFirestore,
+    private val firestore: FirebaseFirestore?,
     private val authRepository: AuthRepository,
     private val timerRepository: TimerRepository,
     private val sequenceRepository: SequenceRepository,
     private val categoryRepository: CategoryRepository
 ) {
+    val isAvailable: Boolean
+        get() = firestore != null && authRepository.isFirebaseAvailable
+
     private fun getUserCollection(collection: String): String {
         val uid = authRepository.currentUser?.uid
             ?: throw IllegalStateException("User not signed in")
@@ -40,6 +43,10 @@ class SyncRepository @Inject constructor(
      * Upload all local data to Firestore.
      */
     suspend fun uploadAllData(): Result<Unit> {
+        if (firestore == null) {
+            return Result.failure(Exception("Firebase is not available"))
+        }
+
         return try {
             val uid = authRepository.currentUser?.uid
                 ?: return Result.failure(Exception("Not signed in"))
@@ -75,6 +82,10 @@ class SyncRepository @Inject constructor(
      * Download all data from Firestore and merge with local.
      */
     suspend fun downloadAndMergeData(): Result<Unit> {
+        if (firestore == null) {
+            return Result.failure(Exception("Firebase is not available"))
+        }
+
         return try {
             val uid = authRepository.currentUser?.uid
                 ?: return Result.failure(Exception("Not signed in"))
@@ -113,6 +124,7 @@ class SyncRepository @Inject constructor(
 
     // Upload methods
     private suspend fun uploadCategory(category: Category) {
+        val fs = firestore ?: return
         val data = mapOf(
             "id" to category.id,
             "name" to category.name,
@@ -122,13 +134,14 @@ class SyncRepository @Inject constructor(
             "isDefault" to category.isDefault,
             "updatedAt" to System.currentTimeMillis()
         )
-        firestore.collection(getUserCollection("categories"))
+        fs.collection(getUserCollection("categories"))
             .document(category.id.toString())
             .set(data, SetOptions.merge())
             .await()
     }
 
     private suspend fun uploadTimer(timer: Timer) {
+        val fs = firestore ?: return
         val data = mapOf(
             "id" to timer.id,
             "label" to timer.label,
@@ -139,13 +152,14 @@ class SyncRepository @Inject constructor(
             "sortOrder" to timer.sortOrder,
             "updatedAt" to System.currentTimeMillis()
         )
-        firestore.collection(getUserCollection("timers"))
+        fs.collection(getUserCollection("timers"))
             .document(timer.id.toString())
             .set(data, SetOptions.merge())
             .await()
     }
 
     private suspend fun uploadSequence(sequence: Sequence) {
+        val fs = firestore ?: return
         val data = mapOf(
             "id" to sequence.id,
             "name" to sequence.name,
@@ -154,13 +168,14 @@ class SyncRepository @Inject constructor(
             "sortOrder" to sequence.sortOrder,
             "updatedAt" to System.currentTimeMillis()
         )
-        firestore.collection(getUserCollection("sequences"))
+        fs.collection(getUserCollection("sequences"))
             .document(sequence.id.toString())
             .set(data, SetOptions.merge())
             .await()
     }
 
     private suspend fun uploadSequenceStep(step: SequenceStep) {
+        val fs = firestore ?: return
         val data = mapOf(
             "id" to step.id,
             "sequenceId" to step.sequenceId,
@@ -170,7 +185,7 @@ class SyncRepository @Inject constructor(
             "stepOrder" to step.stepOrder,
             "updatedAt" to System.currentTimeMillis()
         )
-        firestore.collection(getUserCollection("sequence_steps"))
+        fs.collection(getUserCollection("sequence_steps"))
             .document(step.id.toString())
             .set(data, SetOptions.merge())
             .await()
@@ -178,7 +193,8 @@ class SyncRepository @Inject constructor(
 
     // Download methods
     private suspend fun downloadCategories(): List<Category> {
-        val snapshot = firestore.collection(getUserCollection("categories"))
+        val fs = firestore ?: return emptyList()
+        val snapshot = fs.collection(getUserCollection("categories"))
             .get()
             .await()
 
@@ -199,7 +215,8 @@ class SyncRepository @Inject constructor(
     }
 
     private suspend fun downloadTimers(): List<Timer> {
-        val snapshot = firestore.collection(getUserCollection("timers"))
+        val fs = firestore ?: return emptyList()
+        val snapshot = fs.collection(getUserCollection("timers"))
             .get()
             .await()
 
@@ -223,7 +240,8 @@ class SyncRepository @Inject constructor(
     }
 
     private suspend fun downloadSequences(): List<Sequence> {
-        val snapshot = firestore.collection(getUserCollection("sequences"))
+        val fs = firestore ?: return emptyList()
+        val snapshot = fs.collection(getUserCollection("sequences"))
             .get()
             .await()
 
@@ -243,7 +261,8 @@ class SyncRepository @Inject constructor(
     }
 
     private suspend fun downloadSequenceSteps(): List<SequenceStep> {
-        val snapshot = firestore.collection(getUserCollection("sequence_steps"))
+        val fs = firestore ?: return emptyList()
+        val snapshot = fs.collection(getUserCollection("sequence_steps"))
             .get()
             .await()
 
@@ -311,8 +330,9 @@ class SyncRepository @Inject constructor(
 
     // Delete sync methods
     suspend fun deleteTimerFromCloud(timerId: Long) {
+        val fs = firestore ?: return
         try {
-            firestore.collection(getUserCollection("timers"))
+            fs.collection(getUserCollection("timers"))
                 .document(timerId.toString())
                 .delete()
                 .await()
@@ -322,15 +342,16 @@ class SyncRepository @Inject constructor(
     }
 
     suspend fun deleteSequenceFromCloud(sequenceId: Long) {
+        val fs = firestore ?: return
         try {
             // Delete sequence
-            firestore.collection(getUserCollection("sequences"))
+            fs.collection(getUserCollection("sequences"))
                 .document(sequenceId.toString())
                 .delete()
                 .await()
 
             // Delete associated steps
-            val stepsSnapshot = firestore.collection(getUserCollection("sequence_steps"))
+            val stepsSnapshot = fs.collection(getUserCollection("sequence_steps"))
                 .whereEqualTo("sequenceId", sequenceId)
                 .get()
                 .await()
@@ -344,8 +365,9 @@ class SyncRepository @Inject constructor(
     }
 
     suspend fun deleteCategoryFromCloud(categoryId: Long) {
+        val fs = firestore ?: return
         try {
-            firestore.collection(getUserCollection("categories"))
+            fs.collection(getUserCollection("categories"))
                 .document(categoryId.toString())
                 .delete()
                 .await()

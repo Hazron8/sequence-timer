@@ -52,32 +52,34 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Account section
-            Text(
-                text = "Account",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            AccountCard(
-                authState = uiState.authState,
-                onSignIn = viewModel::signIn,
-                onSignOut = viewModel::signOut
-            )
-
-            // Sync section (only show when signed in)
-            if (uiState.authState is AuthState.SignedIn) {
+            // Account section (only show when Firebase is available)
+            if (uiState.isFirebaseAvailable) {
                 Text(
-                    text = "Cloud Sync",
+                    text = "Account",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
 
-                SyncCard(
-                    syncStatus = uiState.syncStatus,
-                    lastSyncTime = uiState.lastSyncTime,
-                    onSync = viewModel::performSync
+                AccountCard(
+                    authState = uiState.authState,
+                    onSignIn = viewModel::signIn,
+                    onSignOut = viewModel::signOut
                 )
+
+                // Sync section (only show when signed in)
+                if (uiState.authState is AuthState.SignedIn) {
+                    Text(
+                        text = "Cloud Sync",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    SyncCard(
+                        syncStatus = uiState.syncStatus,
+                        lastSyncTime = uiState.lastSyncTime,
+                        onSync = viewModel::performSync
+                    )
+                }
             }
 
             // Error snackbar
@@ -125,7 +127,7 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Sequence Timer",
+                        text = "BetterTimer",
                         style = MaterialTheme.typography.titleLarge
                     )
                     Text(
